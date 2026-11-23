@@ -118,6 +118,51 @@ def lession_list_create(request):
             
 # Lesson Details
 
+@api_view(['GET','POST'])
+def material_list_create(request):
+    if request.method == 'GET':
+        lesson = request.query_params.get('lessonId')
+
+        if not lesson:
+            return Response({'detail': 'Lesson ID is required.'})
+        try:
+            lesson = models.Lesson.objects.get(pk = lesson)
+        except models.Lesson.DoesNotExist:
+            return Response({'detail': "Lesson does not found."})
+
+        course = lesson.course
+        is_teacher = request.user.is_authenticated and request.user.role == 'teacher' and request.user == course.instructor
+        is_admin = request.user.is_authenticated and request.user.role == 'admin'
+        is_enrolled = models.Enrollment(
+            student = request.user,
+            course = course,
+            status ='active'
+        ).exists() if request.user.is_authenticated and request.user.role == 'student' else False
+
+        if not(is_admin or is_teacher or is_enrolled):
+            return Response({'detail' : "Sorry, you don't have permission to view these materials."})
+        materials = models.Material.objects.filter(course = course)
+        serializer = serializers.MaterialSerializer(materials,many = True)
+        return Response(serializer.data)
+
+    if request.method == 'POST':
+        course = lesson.course
+        lesson = request.query_params.get('lessonId')
+        if not lesson:
+            return Response({'detail': 'Lesson ID is required.'})
+        try:
+            lesson = models.Lesson.objects.get(pk = lesson)
+        except models.Lesson.DoesNotExist:
+            return Response({'detail' : 'Sorry,Lesson does not found.'})
+        if request.user != course.instructor:
+            return Response({'detial' : 'You can add only your own lesson.'})
+
+        serializer = serializers.MaterialSerializer(data = request.data)
+        return Response(serializer.data, status = status.HTTP_201_CREATED)
+    return Response(serializer.errors , status = status.HTTP_400_BAD_REQUEST)
+
+        
+
         
             
 
